@@ -94,7 +94,8 @@ class LLMMCPlugin(Star):
         await self.bot_client.init()
         
         # 初始化管理器
-        data_dir = self.context.get_data_dir()
+        from astrbot.core.star.star_tools import StarTools
+        data_dir = StarTools.get_data_dir("astrbot_plugin_llmmc")
         skills_data_dir = f"{data_dir}/skills"
         
         # 首次运行时，将插件自带的技能复制到数据目录
@@ -148,9 +149,9 @@ class LLMMCPlugin(Star):
             plugin_dir = Path(os.path.dirname(os.path.abspath(__file__)))
             bot_path = plugin_dir / "bot"
         
-        server_js = bot_path / "src" / "server.js"
+        server_js = bot_path / "src" / "index.js"
         if not server_js.exists():
-            logger.error(f"[LLMMC] Bot 服务文件不存在: {server_js}")
+            logger.error(f"[LLMMC] Bot 入口文件不存在: {server_js}")
             logger.error(f"[LLMMC] 请在配置中设置正确的 bot_dir，或将 LLM_MC/bot 目录放在插件同级")
             return
         
@@ -328,7 +329,7 @@ class LLMMCPlugin(Star):
         
         if text_parts:
             mc_message = "".join(text_parts).strip()
-            if mc_message:
+            if mc_message and mc_message not in ["*No response*"]:
                 # 分段发送（MC 聊天有长度限制）
                 for i in range(0, len(mc_message), 200):
                     chunk = mc_message[i:i+200]
@@ -336,6 +337,9 @@ class LLMMCPlugin(Star):
                         await self.bot_client.execute_action("chat", {"message": chunk})
                     except Exception as e:
                         logger.error(f"[LLMMC] 发送 MC 消息失败: {e}")
+        
+        # 清空消息链，阻止发送到 QQ 群（MC 消息只回复到 MC）
+        result.chain = []
     
     # ============================================================
     # Agent Loop（可选）
@@ -410,17 +414,31 @@ class LLMMCPlugin(Star):
     
     @filter.llm_tool(name="mc_chat")
     async def tool_chat(self, event: AstrMessageEvent, message: str):
-        """在 Minecraft 聊天中发送消息"""
+        """在 Minecraft 聊天中发送消息
+        
+        Args:
+            message(string): 要发送的消息内容
+        """
         return await self.bot_client.execute_action("chat", {"message": message})
     
     @filter.llm_tool(name="mc_goto")
     async def tool_goto(self, event: AstrMessageEvent, x: int, y: int, z: int):
-        """移动到指定坐标"""
+        """移动到指定坐标
+        
+        Args:
+            x(number): X坐标
+            y(number): Y坐标
+            z(number): Z坐标
+        """
         return await self.bot_client.execute_action("goTo", {"x": x, "y": y, "z": z})
     
     @filter.llm_tool(name="mc_follow_player")
     async def tool_follow_player(self, event: AstrMessageEvent, player_name: str):
-        """跟随指定玩家（持续跟随，使用 mc_stop_moving 停止）"""
+        """跟随指定玩家（持续跟随，使用 mc_stop_moving 停止）
+        
+        Args:
+            player_name(string): 要跟随的玩家名称
+        """
         return await self.bot_client.execute_action("followPlayer", {"playerName": player_name})
     
     @filter.llm_tool(name="mc_stop_moving")
@@ -435,27 +453,52 @@ class LLMMCPlugin(Star):
     
     @filter.llm_tool(name="mc_look_at")
     async def tool_look_at(self, event: AstrMessageEvent, x: int, y: int, z: int):
-        """看向指定坐标"""
+        """看向指定坐标
+        
+        Args:
+            x(number): X坐标
+            y(number): Y坐标
+            z(number): Z坐标
+        """
         return await self.bot_client.execute_action("lookAt", {"x": x, "y": y, "z": z})
     
     @filter.llm_tool(name="mc_attack")
     async def tool_attack(self, event: AstrMessageEvent, entity_type: str):
-        """攻击最近的指定类型实体（单次攻击）"""
+        """攻击最近的指定类型实体（单次攻击）
+        
+        Args:
+            entity_type(string): 实体类型，如zombie、skeleton、creeper等
+        """
         return await self.bot_client.execute_action("attack", {"entityType": entity_type})
     
     @filter.llm_tool(name="mc_collect_block")
     async def tool_collect_block(self, event: AstrMessageEvent, block_type: str):
-        """挖掘并收集最近的指定类型方块"""
+        """挖掘并收集最近的指定类型方块
+        
+        Args:
+            block_type(string): 方块类型，如oak_log、stone、diamond_ore等
+        """
         return await self.bot_client.execute_action("collectBlock", {"blockType": block_type})
     
     @filter.llm_tool(name="mc_place_block")
     async def tool_place_block(self, event: AstrMessageEvent, block_name: str, x: int, y: int, z: int):
-        """在指定位置放置方块"""
+        """在指定位置放置方块
+        
+        Args:
+            block_name(string): 方块名称
+            x(number): X坐标
+            y(number): Y坐标
+            z(number): Z坐标
+        """
         return await self.bot_client.execute_action("placeBlock", {"blockName": block_name, "x": x, "y": y, "z": z})
     
     @filter.llm_tool(name="mc_eat")
     async def tool_eat(self, event: AstrMessageEvent, food_name: str = ""):
-        """吃东西恢复饥饿值。food_name 为空则自动选择"""
+        """吃东西恢复饥饿值。food_name 为空则自动选择
+        
+        Args:
+            food_name(string): 食物名称，为空则自动选择背包中的食物
+        """
         params = {}
         if food_name:
             params["foodName"] = food_name
@@ -468,12 +511,22 @@ class LLMMCPlugin(Star):
     
     @filter.llm_tool(name="mc_activate_block")
     async def tool_activate_block(self, event: AstrMessageEvent, x: int, y: int, z: int):
-        """右键激活/交互方块（开门、按按钮、拉拉杆、使用床等）"""
+        """右键激活/交互方块（开门、按按钮、拉拉杆、使用床等）
+        
+        Args:
+            x(number): X坐标
+            y(number): Y坐标
+            z(number): Z坐标
+        """
         return await self.bot_client.execute_action("activateBlock", {"x": x, "y": y, "z": z})
     
     @filter.llm_tool(name="mc_wait")
     async def tool_wait(self, event: AstrMessageEvent, seconds: float):
-        """等待指定时间（秒）"""
+        """等待指定时间（秒）
+        
+        Args:
+            seconds(number): 等待的秒数
+        """
         return await self.bot_client.execute_action("wait", {"seconds": seconds})
     
     # --- 物品栏 ---
@@ -485,12 +538,21 @@ class LLMMCPlugin(Star):
     
     @filter.llm_tool(name="mc_equip_item")
     async def tool_equip_item(self, event: AstrMessageEvent, item_name: str):
-        """装备物品到手上"""
+        """装备物品到手上
+        
+        Args:
+            item_name(string): 物品名称
+        """
         return await self.bot_client.execute_action("equipItem", {"itemName": item_name})
     
     @filter.llm_tool(name="mc_drop_item")
     async def tool_drop_item(self, event: AstrMessageEvent, item_name: str, count: int = -1):
-        """丢弃物品。count 为 -1 表示全部丢弃"""
+        """丢弃物品。count 为 -1 表示全部丢弃
+        
+        Args:
+            item_name(string): 物品名称
+            count(number): 丢弃数量，-1表示全部丢弃
+        """
         params = {"itemName": item_name}
         if count >= 0:
             params["count"] = count
@@ -500,17 +562,32 @@ class LLMMCPlugin(Star):
     
     @filter.llm_tool(name="mc_craft")
     async def tool_craft(self, event: AstrMessageEvent, item_name: str, count: int = 1):
-        """合成物品"""
+        """合成物品
+        
+        Args:
+            item_name(string): 要合成的物品名称
+            count(number): 合成数量，默认1
+        """
         return await self.bot_client.execute_action("craft", {"itemName": item_name, "count": count})
     
     @filter.llm_tool(name="mc_list_recipes")
     async def tool_list_recipes(self, event: AstrMessageEvent, item_name: str):
-        """查询物品的合成配方"""
+        """查询物品的合成配方
+        
+        Args:
+            item_name(string): 要查询配方的物品名称
+        """
         return await self.bot_client.execute_action("listRecipes", {"itemName": item_name})
     
     @filter.llm_tool(name="mc_smelt")
     async def tool_smelt(self, event: AstrMessageEvent, item_name: str, fuel_name: str = "", count: int = 1):
-        """冶炼物品。fuel_name 为空则自动选择燃料"""
+        """冶炼物品。fuel_name 为空则自动选择燃料
+        
+        Args:
+            item_name(string): 要冶炼的物品名称
+            fuel_name(string): 燃料名称，为空则自动选择
+            count(number): 冶炼数量，默认1
+        """
         params = {"itemName": item_name, "count": count}
         if fuel_name:
             params["fuelName"] = fuel_name
@@ -525,12 +602,22 @@ class LLMMCPlugin(Star):
     
     @filter.llm_tool(name="mc_find_block")
     async def tool_find_block(self, event: AstrMessageEvent, block_type: str, max_distance: int = 32):
-        """寻找最近的指定方块"""
+        """寻找最近的指定方块
+        
+        Args:
+            block_type(string): 方块类型名称
+            max_distance(number): 最大搜索距离，默认32
+        """
         return await self.bot_client.execute_action("findBlock", {"blockType": block_type, "maxDistance": max_distance})
     
     @filter.llm_tool(name="mc_scan_entities")
     async def tool_scan_entities(self, event: AstrMessageEvent, range: int = 16, entity_type: str = ""):
-        """扫描周围实体。entity_type 为空则扫描全部"""
+        """扫描周围实体。entity_type 为空则扫描全部
+        
+        Args:
+            range(number): 扫描范围，默认16
+            entity_type(string): 实体类型过滤，为空则扫描全部
+        """
         params = {"range": range}
         if entity_type:
             params["entityType"] = entity_type
@@ -545,7 +632,13 @@ class LLMMCPlugin(Star):
     
     @filter.llm_tool(name="mc_open_container")
     async def tool_open_container(self, event: AstrMessageEvent, x: int, y: int, z: int):
-        """打开指定位置的容器（箱子、熔炉等）"""
+        """打开指定位置的容器（箱子、熔炉等）
+        
+        Args:
+            x(number): X坐标
+            y(number): Y坐标
+            z(number): Z坐标
+        """
         return await self.bot_client.execute_action("openContainer", {"x": x, "y": y, "z": z})
     
     @filter.llm_tool(name="mc_close_container")
@@ -555,7 +648,12 @@ class LLMMCPlugin(Star):
     
     @filter.llm_tool(name="mc_deposit_item")
     async def tool_deposit_item(self, event: AstrMessageEvent, item_name: str, count: int = -1):
-        """将物品放入容器。count 为 -1 表示全部"""
+        """将物品放入容器。count 为 -1 表示全部
+        
+        Args:
+            item_name(string): 物品名称
+            count(number): 放入数量，-1表示全部
+        """
         params = {"itemName": item_name}
         if count >= 0:
             params["count"] = count
@@ -563,7 +661,12 @@ class LLMMCPlugin(Star):
     
     @filter.llm_tool(name="mc_withdraw_item")
     async def tool_withdraw_item(self, event: AstrMessageEvent, item_name: str, count: int = -1):
-        """从容器取出物品。count 为 -1 表示全部"""
+        """从容器取出物品。count 为 -1 表示全部
+        
+        Args:
+            item_name(string): 物品名称
+            count(number): 取出数量，-1表示全部
+        """
         params = {"itemName": item_name}
         if count >= 0:
             params["count"] = count
@@ -573,7 +676,11 @@ class LLMMCPlugin(Star):
     
     @filter.llm_tool(name="mc_mount_entity")
     async def tool_mount_entity(self, event: AstrMessageEvent, entity_type: str = ""):
-        """骑乘实体（马、船、矿车等）。entity_type 为空则骑乘最近的可骑乘实体"""
+        """骑乘实体（马、船、矿车等）。entity_type 为空则骑乘最近的可骑乘实体
+        
+        Args:
+            entity_type(string): 实体类型，为空则骑乘最近的可骑乘实体
+        """
         params = {}
         if entity_type:
             params["entityType"] = entity_type
@@ -586,7 +693,12 @@ class LLMMCPlugin(Star):
     
     @filter.llm_tool(name="mc_use_on_entity")
     async def tool_use_on_entity(self, event: AstrMessageEvent, entity_type: str, hand: str = "hand"):
-        """对实体使用物品/右键交互（喂动物、与村民交易、拴绳等）"""
+        """对实体使用物品/右键交互（喂动物、与村民交易、拴绳等）
+        
+        Args:
+            entity_type(string): 目标实体类型
+            hand(string): 使用的手，hand或off-hand，默认hand
+        """
         return await self.bot_client.execute_action("useOnEntity", {"entityType": entity_type, "hand": hand})
     
     # --- 高级功能 ---
@@ -602,12 +714,21 @@ class LLMMCPlugin(Star):
                 await bot.goTo(blocks['x'], blocks['y'], blocks['z'])
                 await bot.collectBlock('diamond_ore')
             return "完成"
+        
+        Args:
+            script(string): Python脚本代码，必须包含async main(bot)函数
+            description(string): 脚本描述，用于日志记录
+            timeout(number): 超时时间（秒），默认300
         """
         return await self.script_executor.execute(script, timeout=timeout)
     
     @filter.llm_tool(name="mc_start_skill")
     async def tool_start_skill(self, event: AstrMessageEvent, skill_name: str):
-        """作为后台任务启动一个已保存的技能"""
+        """作为后台任务启动一个已保存的技能
+        
+        Args:
+            skill_name(string): 技能名称
+        """
         skill = self.skill_manager.get_skill(skill_name)
         if not skill:
             return {"success": False, "error": f"技能 '{skill_name}' 不存在"}
@@ -624,7 +745,13 @@ class LLMMCPlugin(Star):
     
     @filter.llm_tool(name="mc_save_skill")
     async def tool_save_skill(self, event: AstrMessageEvent, name: str, description: str, code: str):
-        """保存一个可复用的技能代码。code 是 Python 代码，会被包装成 async def skill_name(bot) 函数"""
+        """保存一个可复用的技能代码。code 是 Python 代码，会被包装成 async def skill_name(bot) 函数
+        
+        Args:
+            name(string): 技能名称
+            description(string): 技能描述
+            code(string): Python代码
+        """
         return self.skill_manager.save_skill(name, description, code)
     
     @filter.llm_tool(name="mc_list_skills")
@@ -637,12 +764,20 @@ class LLMMCPlugin(Star):
     
     @filter.llm_tool(name="mc_delete_skill")
     async def tool_delete_skill(self, event: AstrMessageEvent, skill_name: str):
-        """删除一个已保存的技能"""
+        """删除一个已保存的技能
+        
+        Args:
+            skill_name(string): 要删除的技能名称
+        """
         return self.skill_manager.delete_skill(skill_name)
     
     @filter.llm_tool(name="mc_get_task_status")
     async def tool_get_task_status(self, event: AstrMessageEvent, task_id: str = ""):
-        """查看后台任务状态。task_id 为空则查看所有正在运行的任务"""
+        """查看后台任务状态。task_id 为空则查看所有正在运行的任务
+        
+        Args:
+            task_id(string): 任务ID，为空则查看全部
+        """
         if task_id:
             task = self.task_manager.get_task(task_id)
             if not task:
@@ -652,7 +787,11 @@ class LLMMCPlugin(Star):
     
     @filter.llm_tool(name="mc_cancel_task")
     async def tool_cancel_task(self, event: AstrMessageEvent, task_id: str):
-        """取消一个后台任务"""
+        """取消一个后台任务
+        
+        Args:
+            task_id(string): 要取消的任务ID
+        """
         success = await self.task_manager.cancel_task(task_id)
         if success:
             return {"success": True, "message": f"任务 '{task_id}' 已取消"}
