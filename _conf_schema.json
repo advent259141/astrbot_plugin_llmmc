@@ -1,0 +1,116 @@
+{
+  "auto_start_bot": {
+    "type": "bool",
+    "title": "自动启动 Bot 服务",
+    "description": "插件启动时自动拉起 Node.js Mineflayer Bot 服务进程",
+    "default": true
+  },
+  "bot_dir": {
+    "type": "string",
+    "title": "Bot 服务目录",
+    "description": "Node.js Bot 项目路径（包含 src/server.js 的目录），留空则使用插件同级目录的 LLM_MC/bot",
+    "default": ""
+  },
+  "mc_host": {
+    "type": "string",
+    "title": "MC 服务器地址",
+    "description": "Minecraft 服务器地址",
+    "default": "localhost"
+  },
+  "mc_port": {
+    "type": "int",
+    "title": "MC 服务器端口",
+    "description": "Minecraft 服务器端口",
+    "default": 25565
+  },
+  "mc_username": {
+    "type": "string",
+    "title": "Bot 用户名",
+    "description": "Bot 在 MC 中的用户名",
+    "default": "LLM_Bot"
+  },
+  "mc_version": {
+    "type": "string",
+    "title": "MC 版本",
+    "description": "Minecraft 版本号",
+    "default": "1.20.1"
+  },
+  "bot_service_port": {
+    "type": "int",
+    "title": "Bot 服务端口",
+    "description": "Node.js Bot HTTP/WS 服务端口",
+    "default": 3001
+  },
+  "bot_http_url": {
+    "type": "string",
+    "title": "Bot Service HTTP 地址（手动模式）",
+    "description": "仅当关闭自动启动时使用。自动启动时会根据 bot_service_port 自动生成",
+    "default": "http://localhost:3001"
+  },
+  "bot_ws_url": {
+    "type": "string",
+    "title": "Bot Service WebSocket 地址",
+    "description": "留空则自动从 HTTP 地址推断",
+    "default": ""
+  },
+  "unified_group_umo": {
+    "type": "string",
+    "title": "绑定 QQ 群 UMO",
+    "description": "MC 聊天消息会注入到此 QQ 群的上下文中，实现对话互通。格式：平台ID:GroupMessage:群号，示例：aiocqhttp_default:GroupMessage:123456789",
+    "default": ""
+  },
+  "bot_nickname": {
+    "type": "string",
+    "title": "机器人昵称",
+    "description": "MC 聊天中显示的机器人名称",
+    "default": "小面包"
+  },
+  "enable_chat_response": {
+    "type": "bool",
+    "title": "启用聊天回复",
+    "description": "是否将 LLM 的回复发送到 MC 聊天框",
+    "default": true
+  },
+  "enable_agent_loop": {
+    "type": "bool",
+    "title": "启用 Agent 循环",
+    "description": "启用后 Bot 会定期检测环境状态，在紧急情况（低生命值、死亡等）时主动触发 LLM 决策",
+    "default": false
+  },
+  "agent_tick_rate": {
+    "type": "int",
+    "title": "Agent 循环间隔（秒）",
+    "description": "Agent 循环的轮询间隔，单位秒",
+    "default": 5
+  },
+  "health_threshold": {
+    "type": "int",
+    "title": "生命值警报阈值",
+    "description": "生命值低于此值时 Agent 会主动唤醒 LLM（满血 20）",
+    "default": 6
+  },
+  "food_threshold": {
+    "type": "int",
+    "title": "饥饿值警报阈值",
+    "description": "饥饿值低于此值时 Agent 会主动唤醒 LLM（满饥饿 20）",
+    "default": 4
+  },
+  "auto_connect": {
+    "type": "bool",
+    "title": "Bot 自动连接 MC",
+    "description": "Bot 服务启动后自动连接 Minecraft 服务器",
+    "default": false
+  },
+  "viewer_enabled": {
+    "type": "bool",
+    "title": "启用 Viewer",
+    "description": "启用 prismarine-viewer 网页可视化",
+    "default": false
+  },
+  "viewer_port": {
+    "type": "int",
+    "title": "Viewer 端口",
+    "description": "prismarine-viewer 的端口",
+    "default": 3007
+  }
+}
