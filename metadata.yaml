@@ -1,5 +1,5 @@
 name: astrbot_plugin_llmmc
-desc: "LLM-MC Minecraft Bot 插件 - 将 MC Bot 能力集成到 AstrBot，支持群聊/MC上下文互通"
-author: "LLMMC"
-version: "0.1.0"
-repo: ""
+desc: "LLM-MC Minecraft Bot 插件 - 将 MC Bot 能力集成到 AstrBot，支持群聊/MC上下文互通，让BOT真正能操控角色游玩MC"
+author: "Jason.Joestar"
+version: "1.0.0"
+repo: "https://github.com/advent259141/astrbot_plugin_llmmc"
