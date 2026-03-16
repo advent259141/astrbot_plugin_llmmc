@@ -173,7 +173,7 @@ class LLMMCPlugin(Star):
                 ["node", str(server_js)],
                 cwd=str(bot_path),
                 env=env,
-                stdout=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
                 stderr=subprocess.STDOUT,
             )
             logger.info(f"[LLMMC] Bot 服务已启动 (PID: {self._bot_process.pid}) | MC: {self.mc_host}:{self.mc_port} | 端口: {self.bot_service_port}")
